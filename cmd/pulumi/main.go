@@ -3,15 +3,22 @@ package main
 import (
 	"fmt"
 
+	"github.com/pulumi/pulumi-aws/sdk/v4/go/aws"
 	"github.com/pulumi/pulumi-aws/sdk/v4/go/aws/apigatewayv2"
+	"github.com/pulumi/pulumi-aws/sdk/v4/go/aws/codedeploy"
 	"github.com/pulumi/pulumi-aws/sdk/v4/go/aws/iam"
 	"github.com/pulumi/pulumi-aws/sdk/v4/go/aws/lambda"
+	"github.com/pulumi/pulumi-aws/sdk/v4/go/aws/s3"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		stack := ctx.Stack()
+		caller, err := aws.GetCallerIdentity(ctx, nil, nil)
+		if err != nil {
+			return err
+		}
 
 		// API Gateway
 		apigw, err := apigatewayv2.NewApi(ctx, fmt.Sprintf("go-serverless-example-%s", stack), &apigatewayv2.ApiArgs{
@@ -65,14 +72,31 @@ func main() {
             }`),
 		})
 
+		lambdaSourceBucket, err := s3.NewBucket(ctx, fmt.Sprintf("go-serverless-example-%s", stack), &s3.BucketArgs{
+			Acl: pulumi.String("private"),
+		})
+		if err != nil {
+			return err
+		}
+
+		// This will eventually be overwritten by CD pipeline
+		// Presumes the project has been built
+		initialLambdaBuild, err := s3.NewBucketObject(ctx, "examplebucketObject", &s3.BucketObjectArgs{
+			Key:    pulumi.String("initial"),
+			Bucket: lambdaSourceBucket.ID(),
+			Source: pulumi.NewFileAsset("./bin/apilambda.zip"),
+		})
+		if err != nil {
+			return err
+		}
+
 		apilambdafn, err := lambda.NewFunction(ctx, fmt.Sprintf("go-serverless-example-api-%s", stack), &lambda.FunctionArgs{
-			Handler: pulumi.String("apilambda"),
-			Role:    role.Arn,
-			Runtime: pulumi.String("go1.x"),
-			Code:    pulumi.NewFileArchive("./bin/apilambda.zip"),
-			// S3Bucket: pulumi.String("serverles-go-test-again-serverlessdeploymentbuck-1m2tl9fx70cxp"),
-			// S3Key:    pulumi.String("noop"),
-			Publish: pulumi.BoolPtr(true),
+			Handler:  pulumi.String("apilambda"),
+			Role:     role.Arn,
+			Runtime:  pulumi.String("go1.x"),
+			S3Bucket: lambdaSourceBucket.ID(),
+			S3Key:    initialLambdaBuild.Key,
+			Publish:  pulumi.BoolPtr(true),
 		},
 			pulumi.DependsOn([]pulumi.Resource{logPolicy}),
 		)
@@ -96,7 +120,7 @@ func main() {
 			Function:  apilambdafn.Name,
 			Qualifier: apilambdaReleaseAlias.Name,
 			Principal: pulumi.String("apigateway.amazonaws.com"),
-			SourceArn: pulumi.Sprintf("arn:aws:execute-api:%s:%s:%s/*/*/*", "us-east-1", "076797644834", apigw.ID()), // TODO: Parameterize account ID
+			SourceArn: pulumi.Sprintf("arn:aws:execute-api:%s:%s:%s/*/*/*", "us-east-1", caller.AccountId, apigw.ID()),
 		})
 		if err != nil {
 			return err
@@ -124,6 +148,60 @@ func main() {
 			// AuthorizerId:      authorizer.ID(),
 			// AuthorizationType: pulumi.String("JWT"),
 		})
+		if err != nil {
+			return err
+		}
+
+		// CodeDeploy
+		_, err = s3.NewBucket(ctx, fmt.Sprintf("go-serverless-example-release-%s", stack), &s3.BucketArgs{
+			Acl: pulumi.String("private"),
+		})
+		if err != nil {
+			return err
+		}
+
+		codeDeployApplication, err := codedeploy.NewApplication(ctx, "go-serverless-example", &codedeploy.ApplicationArgs{
+			Name:            pulumi.String("go-serverless-example"),
+			ComputePlatform: pulumi.String("Lambda"),
+		})
+		if err != nil {
+			return err
+		}
+
+		codeDeployRole, err := iam.NewRole(ctx, "go-serverless-example-codedeploy", &iam.RoleArgs{
+			AssumeRolePolicy: pulumi.Any(fmt.Sprintf("%v%v%v%v%v%v%v%v%v%v%v%v%v", "{\n", "  \"Version\": \"2012-10-17\",\n", "  \"Statement\": [\n", "    {\n", "      \"Sid\": \"\",\n", "      \"Effect\": \"Allow\",\n", "      \"Principal\": {\n", "        \"Service\": \"codedeploy.amazonaws.com\"\n", "      },\n", "      \"Action\": \"sts:AssumeRole\"\n", "    }\n", "  ]\n", "}\n")),
+		})
+		if err != nil {
+			return err
+		}
+		_, err = iam.NewRolePolicyAttachment(ctx, "go-serverless-example-codedeploy-lambda", &iam.RolePolicyAttachmentArgs{
+			PolicyArn: pulumi.String("arn:aws:iam::aws:policy/service-role/AWSCodeDeployRoleForLambda"),
+			Role:      codeDeployRole.Name,
+		})
+		if err != nil {
+			return err
+		}
+
+		// TODO: Scope this down
+		_, err = iam.NewRolePolicyAttachment(ctx, "go-serverless-example-codedeploy-s3-full", &iam.RolePolicyAttachmentArgs{
+			PolicyArn: pulumi.String("arn:aws:iam::aws:policy/AmazonS3FullAccess"),
+			Role:      codeDeployRole.Name,
+		})
+		if err != nil {
+			return err
+		}
+
+		_, err = codedeploy.NewDeploymentGroup(ctx, "go-serverless-example-codedeploy", &codedeploy.DeploymentGroupArgs{
+			AppName:              codeDeployApplication.Name,
+			DeploymentGroupName:  pulumi.String("release"),
+			DeploymentConfigName: pulumi.String("CodeDeployDefault.LambdaAllAtOnce"),
+			ServiceRoleArn:       codeDeployRole.Arn,
+			DeploymentStyle: &codedeploy.DeploymentGroupDeploymentStyleArgs{
+				DeploymentOption: pulumi.String("WITH_TRAFFIC_CONTROL"),
+				DeploymentType:   pulumi.String("BLUE_GREEN"),
+			},
+		})
+
 		if err != nil {
 			return err
 		}

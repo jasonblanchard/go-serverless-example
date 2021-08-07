@@ -26,20 +26,6 @@ func init() {
 		})
 	})
 
-	r.GET("/release/api/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-		})
-	})
-
-	r.GET("/api/test", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-		})
-	})
-
-	type ctxKey struct{}
-
 	r.GET("/api/meta", func(c *gin.Context) {
 		apiGwContext, err := ginLambda.GetAPIGatewayContext(c.Request)
 		context := fmt.Sprintf("%+v", apiGwContext)

@@ -1,0 +1,6 @@
+name: go-serverless-example
+runtime:
+  name: go
+  options:
+    binary: ./bin/pulumi
+description: A minimal AWS Go Pulumi program

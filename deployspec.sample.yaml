@@ -1,0 +1,18 @@
+version: 0.0
+Resources:
+  - myLambdaFunction:
+      FunctionCode:
+        S3Bucket: mybucket
+        S3Key: some/path/source.zip
+      FunctionConfiguration:
+        Environment:
+          someKey: somevalue
+          sha: aaabbbccc
+Appspec:
+  version: 0.0
+  Resources:
+    - myLambdaFunction:
+        Type: AWS::Lambda::Function
+        Properties:
+          Name: "ringApi-1cc9676"
+          Alias: "release"

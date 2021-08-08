@@ -1,5 +1,7 @@
 .PHONY: apilambda
 
+GIT_SHA=$(shell git rev-parse HEAD)
+
 pulumi:
 	go build -o ./bin/pulumi ./cmd/pulumi
 
@@ -12,10 +14,13 @@ apilambda:
 	zip -j ./bin/apilambda.zip ./bin/apilambda
 
 apipush:
-	aws s3 cp ./bin/apilambda.zip s3://$$(pulumi stack output lambdaSourceBucket)/v1/apilambda.zip
+	aws s3 cp ./bin/apilambda.zip s3://$$(pulumi stack output lambdaSourceBucket)/${GIT_SHA}/apilambda.zip
 
 lambdaversion:
-	aws lambda update-function-code --function-name $$(pulumi stack output apiLambdaName) --s3-bucket $$(pulumi stack output lambdaSourceBucket) --s3-key v1/apilambda.zip --publish
+	aws lambda update-function-code --function-name $$(pulumi stack output apiLambdaName) --s3-bucket $$(pulumi stack output lambdaSourceBucket) --s3-key ${GIT_SHA}/apilambda.zip --publish
 
 release:
 	aws s3 cp ./release.yaml s3://$$(pulumi stack output apiLambdaReleaseBucket)/release.yaml
+
+sha:
+	echo ${GIT_SHA}

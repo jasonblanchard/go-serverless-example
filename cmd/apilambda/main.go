@@ -52,6 +52,7 @@ func init() {
 			"stage":      stage,
 			"authorizer": authorizer,
 			"version":    version,
+			"bust":       "cache",
 		})
 	})
 

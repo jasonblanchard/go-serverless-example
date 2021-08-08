@@ -12,10 +12,10 @@ apilambda:
 	zip -j ./bin/apilambda.zip ./bin/apilambda
 
 apipush:
-	aws s3 cp ./bin/apilambda.zip s3://go-serverless-example-prod-126ca7c/v1/apilambda.zip
+	aws s3 cp ./bin/apilambda.zip s3://$$(pulumi stack output lambdaSourceBucket)/v1/apilambda.zip
 
 lambdaversion:
-	aws lambda update-function-code --function-name go-serverless-example-api-prod-0c7d815 --s3-bucket go-serverless-example-prod-126ca7c --s3-key v1/apilambda.zip --publish
+	aws lambda update-function-code --function-name $$(pulumi stack output apiLambdaName) --s3-bucket $$(pulumi stack output lambdaSourceBucket) --s3-key v1/apilambda.zip --publish
 
 release:
-	aws s3 cp ./release.yaml s3://go-serverless-example-release-prod-1f070f7/release.yaml
+	aws s3 cp ./release.yaml s3://$$(pulumi stack output apiLambdaReleaseBucket)/release.yaml

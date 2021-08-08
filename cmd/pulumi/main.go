@@ -79,6 +79,8 @@ func main() {
 			return err
 		}
 
+		ctx.Export("lambdaSourceBucket", lambdaSourceBucket.Bucket)
+
 		// This will eventually be overwritten by CD pipeline
 		// Presumes the project has been built
 		initialLambdaBuild, err := s3.NewBucketObject(ctx, "examplebucketObject", &s3.BucketObjectArgs{
@@ -103,6 +105,8 @@ func main() {
 		if err != nil {
 			return err
 		}
+
+		ctx.Export("apiLambdaName", apilambdafn.Name)
 
 		apilambdaReleaseAlias, err := lambda.NewAlias(ctx, "releaseLambdaAlias", &lambda.AliasArgs{
 			Name:            pulumi.String("release"),
@@ -153,12 +157,14 @@ func main() {
 		}
 
 		// CodeDeploy
-		_, err = s3.NewBucket(ctx, fmt.Sprintf("go-serverless-example-release-%s", stack), &s3.BucketArgs{
+		releaseBucket, err := s3.NewBucket(ctx, fmt.Sprintf("go-serverless-example-release-%s", stack), &s3.BucketArgs{
 			Acl: pulumi.String("private"),
 		})
 		if err != nil {
 			return err
 		}
+
+		ctx.Export("apiLambdaReleaseBucket", releaseBucket.Bucket)
 
 		codeDeployApplication, err := codedeploy.NewApplication(ctx, "go-serverless-example", &codedeploy.ApplicationArgs{
 			Name:            pulumi.String("go-serverless-example"),

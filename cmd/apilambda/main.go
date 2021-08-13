@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -40,6 +41,8 @@ func init() {
 
 		version := lambdacontext.FunctionVersion
 
+		sha := os.Getenv("sha")
+
 		if err != nil {
 			c.JSON(500, err)
 			return
@@ -52,7 +55,7 @@ func init() {
 			"stage":      stage,
 			"authorizer": authorizer,
 			"version":    version,
-			"bust":       "cache",
+			"sha":        sha,
 		})
 	})
 

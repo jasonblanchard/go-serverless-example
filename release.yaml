@@ -1,9 +1,9 @@
-version: 0.0
+version: "0.0"
 Resources:
-  - myLambdaFunction:
-      Type: AWS::Lambda::Function
-      Properties:
-        Name: "go-serverless-example-api-prod-0c7d815"
-        Alias: "release"
-        CurrentVersion: "1"
-        TargetVersion: "3"
+- apiLambdaFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Name: go-serverless-example-api-prod-0c7d815
+      Alias: release
+      CurrentVersion: "3"
+      TargetVersion: "5"

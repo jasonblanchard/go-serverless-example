@@ -5,5 +5,5 @@ Resources:
     Properties:
       Name: go-serverless-example-api-prod-0c7d815
       Alias: release
-      CurrentVersion: "3"
-      TargetVersion: "5"
+      CurrentVersion: "6"
+      TargetVersion: "6"

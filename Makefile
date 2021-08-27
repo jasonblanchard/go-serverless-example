@@ -22,5 +22,9 @@ lambdaversion:
 release:
 	aws s3 cp ./release.yaml s3://$$(pulumi stack output apiLambdaReleaseBucket)/release.yaml
 
+deployspec:
+	zip -j ./deployspec.zip ./deployspec.yaml
+	aws s3 cp ./deployspec.zip s3://$$(pulumi stack output apiLambdaDeployspecBucket)
+
 sha:
 	echo ${GIT_SHA}

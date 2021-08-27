@@ -212,6 +212,15 @@ func main() {
 			return err
 		}
 
+		deployspecBucket, err := s3.NewBucket(ctx, fmt.Sprintf("go-serverless-example-deployspec-%s", stack), &s3.BucketArgs{
+			Acl: pulumi.String("private"),
+			Versioning: &s3.BucketVersioningArgs{
+				Enabled: pulumi.Bool(true),
+			},
+		})
+
+		ctx.Export("apiLambdaDeployspecBucket", deployspecBucket.Bucket)
+
 		return nil
 	})
 }

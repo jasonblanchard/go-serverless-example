@@ -1,2 +1,4 @@
 config:
+  go-serverless-example:aud: 691474794551-sf5s8aprb3dnus95ic78048l2497ornp.apps.googleusercontent.com
+  go-serverless-example:issuer: "https://accounts.google.com"
   aws:region: us-east-1

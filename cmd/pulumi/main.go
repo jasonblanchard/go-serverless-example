@@ -10,6 +10,7 @@ import (
 	"github.com/pulumi/pulumi-aws/sdk/v4/go/aws/lambda"
 	"github.com/pulumi/pulumi-aws/sdk/v4/go/aws/s3"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 )
 
 func main() {
@@ -119,6 +120,23 @@ func main() {
 
 		// API Gateway => API Lambda integration
 
+		conf := config.New(ctx, "")
+		issuer := conf.Require("issuer")
+		aud := conf.Require("aud")
+
+		authorizer, err := apigatewayv2.NewAuthorizer(ctx, "google", &apigatewayv2.AuthorizerArgs{
+			ApiId:           apigw.ID(),
+			AuthorizerType:  pulumi.String("JWT"),
+			IdentitySources: pulumi.ToStringArray([]string{"$request.header.Authorization"}),
+			JwtConfiguration: &apigatewayv2.AuthorizerJwtConfigurationArgs{
+				Issuer:    pulumi.String(issuer),
+				Audiences: pulumi.ToStringArray([]string{aud}),
+			},
+		})
+		if err != nil {
+			return err
+		}
+
 		_, err = lambda.NewPermission(ctx, "APIPermission", &lambda.PermissionArgs{
 			Action:    pulumi.String("lambda:InvokeFunction"),
 			Function:  apilambdafn.Name,
@@ -146,11 +164,11 @@ func main() {
 		}).(pulumi.StringOutput)
 
 		_, err = apigatewayv2.NewRoute(ctx, "routev2", &apigatewayv2.RouteArgs{
-			ApiId:    apigw.ID(),
-			RouteKey: pulumi.String("GET /{proxy+}"),
-			Target:   target,
-			// AuthorizerId:      authorizer.ID(),
-			// AuthorizationType: pulumi.String("JWT"),
+			ApiId:             apigw.ID(),
+			RouteKey:          pulumi.String("GET /{proxy+}"),
+			Target:            target,
+			AuthorizerId:      authorizer.ID(),
+			AuthorizationType: pulumi.String("JWT"),
 		})
 		if err != nil {
 			return err

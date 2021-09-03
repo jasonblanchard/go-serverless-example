@@ -43,19 +43,22 @@ func init() {
 
 		sha := os.Getenv("sha")
 
+		authorizationHeader := c.Request.Header["Authorization"]
+
 		if err != nil {
 			c.JSON(500, err)
 			return
 		}
 
 		c.JSON(200, gin.H{
-			"context":    context,
-			"stageVars":  stageVars,
-			"requestId":  requestId,
-			"stage":      stage,
-			"authorizer": authorizer,
-			"version":    version,
-			"sha":        sha,
+			"context":             context,
+			"stageVars":           stageVars,
+			"requestId":           requestId,
+			"stage":               stage,
+			"authorizer":          authorizer,
+			"authorizationHeader": authorizationHeader,
+			"version":             version,
+			"sha":                 sha,
 		})
 	})
 
